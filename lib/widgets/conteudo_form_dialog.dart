@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:maps_launcher/maps_launcher.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import '../model/cep_model.dart';
 import '../model/ponto_turistico.dart';
+import '../services/cep_service.dart';
 
 class ConteudoFormDialog extends StatefulWidget{
   final PontoTuristico? turismoAtual;
@@ -14,12 +17,19 @@ class ConteudoFormDialog extends StatefulWidget{
 }
 
 class ConteudoFormDialogState extends State<ConteudoFormDialog> {
+  final _service = CepService();
+  final _cepFormater = MaskTextInputFormatter(
+      mask: '#####-###',
+      filter: {'#' : RegExp(r'[0-9]')}
+  );
+  var _loading = false;
+  Endereco? _cep;
 
   Position? _localizacaoAtual;
   final _controller = TextEditingController();
 
   String get _textoLocalizacao => _localizacaoAtual == null ? '' :
-  'Latitude: ${_localizacaoAtual!.latitude}  |  Longetude: ${_localizacaoAtual!.longitude}';
+  'Latitude: ${_localizacaoAtual!.latitude}  |  Longitude: ${_localizacaoAtual!.longitude}';
 
   String get _latitude => _localizacaoAtual?.latitude.toString() ?? '';
   String get _longitude => _localizacaoAtual?.longitude.toString() ?? '';
@@ -32,6 +42,8 @@ class ConteudoFormDialogState extends State<ConteudoFormDialog> {
   final _dateFormat = DateFormat('dd/MM/yyyy');
   final _longitudeController = TextEditingController();
   final _latitudeController = TextEditingController();
+  final _localizacaoController = TextEditingController();
+  final _cepController = TextEditingController();
 
   //Inicia todas os campos
   @override
@@ -44,6 +56,8 @@ class ConteudoFormDialogState extends State<ConteudoFormDialog> {
       _dataController.text = widget.turismoAtual!.dataCadastroFormatado;
       _longitudeController.text = widget.turismoAtual!.longitude;
       _latitudeController.text = widget.turismoAtual!.latitude;
+      _localizacaoController.text = widget.turismoAtual!.localizacao;
+      _cepController.text = widget.turismoAtual!.cep;
     };
   }
 
@@ -95,10 +109,36 @@ class ConteudoFormDialogState extends State<ConteudoFormDialog> {
             ),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 10),
-              child: TextField(
-                controller: _controller,
+              child: TextFormField(
+                controller: _cepController,
                 decoration: InputDecoration(
-                    labelText: 'Local do Ponto Turistico',
+                  labelText: 'CEP',
+                  suffixIcon: _loading ? const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ) : IconButton(
+                    onPressed: _findCep,
+                    icon: const Icon(Icons.search),
+                  ),
+                ),
+                inputFormatters: [_cepFormater],
+                validator: (String? value){
+                  if(value == null || value.isEmpty ||
+                      !_cepFormater.isFill()){
+                    return 'Informe um cep válido!';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            Container(height: 10),
+            ..._buildWidgets(),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              child: TextFormField(
+                controller: _localizacaoController,
+                decoration: InputDecoration(
+                    labelText: 'Nome do Ponto Turistico',
                     suffixIcon: IconButton(
                       icon: Icon(Icons.map),
                       tooltip: 'Abrir no mapa',
@@ -133,6 +173,8 @@ class ConteudoFormDialogState extends State<ConteudoFormDialog> {
       diferenciais: _diferenciaisController.text,
       latitude: _latitude,
       longitude: _longitude,
+      localizacao: _localizacaoController.text,
+      cep: _cepController.text,
       dataCadastro: DateTime.now()
   );
 
@@ -151,11 +193,12 @@ class ConteudoFormDialogState extends State<ConteudoFormDialog> {
 
     });
   }
+
   void _abrirNoMapaExterno(){
-    if(_controller.text.trim().isEmpty){
+    if(_localizacaoController.text.trim().isEmpty){
       return;
     }
-    MapsLauncher.launchQuery(_controller.text);
+    MapsLauncher.launchQuery(_localizacaoController.text);
   }
   void _abrirCoordenadasNoMapaExterno() {
     if(_localizacaoAtual == null){
@@ -215,4 +258,35 @@ class ConteudoFormDialogState extends State<ConteudoFormDialog> {
     );
   }
 
+  Future<void> _findCep() async {
+    if(_formKey.currentState == null || !_formKey.currentState!.validate()){
+      return;
+    }
+    setState(() {
+      _loading = true;
+    });
+    try{
+      _cep = await _service.findCepAsObject(_cepFormater.getUnmaskedText());
+    }catch(e){
+      debugPrint(e.toString());
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Ocorreu um erro, tente noavamente! \n'
+              'ERRO: ${e.toString()}')
+      ));
+    }
+    setState(() {
+      _loading = false;
+    });
+  }
+  List<Widget> _buildWidgets(){
+    final List<Widget> widgets = [];
+    if(_cep != null){
+      final map = _cep!.toJson();
+      for(final key in map.keys){
+        widgets.add(Text('$key:  ${map[key]}'));
+
+      }
+    }
+    return widgets;
+  }
 }

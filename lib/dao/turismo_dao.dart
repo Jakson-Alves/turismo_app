@@ -55,6 +55,8 @@ class TurismoDao {
         PontoTuristico.campoDiferenciais,
         PontoTuristico.campoData,
         PontoTuristico.campoLatitude,
+        PontoTuristico.campoLocalizacao,
+        PontoTuristico.campoCEP,
         PontoTuristico.campoLongitude
       ],
       where: where,

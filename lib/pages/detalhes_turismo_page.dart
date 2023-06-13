@@ -1,5 +1,8 @@
+import 'dart:ffi';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import '../model/ponto_turistico.dart';
 import 'mapa_interno.dart';
@@ -14,6 +17,14 @@ class DetalhesTurismoPage extends StatefulWidget {
 }
 
 class _DetalhesTurismoPageState extends State<DetalhesTurismoPage> {
+
+  Position? _localizacaoAtual;
+  String get _textoLocalizacao => _localizacaoAtual == null ? '' :
+  'Latitude: ${_localizacaoAtual!.latitude}  |  Longitude: ${_localizacaoAtual!.longitude}';
+
+  String get _latitude => _localizacaoAtual?.latitude.toString() ?? '';
+  String get _longitude => _localizacaoAtual?.longitude.toString() ?? '';
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -60,9 +71,9 @@ class _DetalhesTurismoPageState extends State<DetalhesTurismoPage> {
         ),
         Row(
           children: [
-            Campo(descricao: 'Localização: '),
+            Campo(descricao: 'Localização de cadastro: '),
             Valor(
-              valor: 'Latitude: ${widget.pontoturistico.latitude}\nLongetude: ${widget.pontoturistico.longitude}',
+              valor: 'Latitude: ${widget.pontoturistico.latitude}\nLongitude: ${widget.pontoturistico.longitude}',
             ),
             ElevatedButton(
                 onPressed: _abrirCoordenadasNoMapaExterno,
@@ -74,6 +85,24 @@ class _DetalhesTurismoPageState extends State<DetalhesTurismoPage> {
             ),
           ],
         ),
+        Row(
+          children: [
+            Campo(descricao: 'Localização Ponto Turístico: '),
+            Valor(
+              valor: widget.pontoturistico.localizacao,
+            ),
+            ElevatedButton(
+                onPressed: _abrirNoMapaExterno,
+                child: Icon(Icons.map)
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            Campo(descricao: 'Cep: '),
+            Valor(valor: widget.pontoturistico.cep),
+          ],
+        ),
 
         Row(
           children: [
@@ -81,9 +110,37 @@ class _DetalhesTurismoPageState extends State<DetalhesTurismoPage> {
             Valor(valor: widget.pontoturistico.finalizada ? 'Sim' : 'Não'),
           ],
         ),
+        Row(
+          children: [
+            ElevatedButton(
+                onPressed: calcularDistancia,
+                child: Icon(Icons.map)
+            ),
+            Campo(descricao: 'Calculo de distância: '),
+            Valor(
+              valor: calcularDistancia().toString(),
+            ),
+          ],
+        ),
       ],
     ),
   );
+
+  Future<Double> calcularDistancia() async {
+    Double distanciaEmMetros = (await Geolocator.distanceBetween(_latitude as double, _longitude as double,
+        widget.pontoturistico.localizacao as double, widget.pontoturistico.localizacao as double)) as Double;
+
+    // double distanciaEmQuilometros = distanciaEmMetros / 1000;
+
+    return distanciaEmMetros;
+  }
+
+  void _abrirNoMapaExterno(){
+    if (widget.pontoturistico.localizacao.isEmpty) {
+      return;
+    }
+    MapsLauncher.launchQuery(widget.pontoturistico.localizacao);
+  }
 
   void _abrirCoordenadasNoMapaExterno() {
     if (widget.pontoturistico.latitude.isEmpty || widget.pontoturistico.longitude.isEmpty ) {

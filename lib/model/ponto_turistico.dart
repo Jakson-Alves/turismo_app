@@ -11,8 +11,9 @@ class PontoTuristico{
   static const campoDiferenciais = 'diferenciais';
   static const campoLongitude = 'longitude';
   static const campoLatitude = 'latitude';
+  static const campoLocalizacao = 'localizacao';
+  static const campoCEP = 'cep';
   static const campoFinalizada = 'finalizada';
-
 
   int? id;
   String nome;
@@ -21,6 +22,8 @@ class PontoTuristico{
   DateTime? dataCadastro = DateTime.now();
   String longitude;
   String latitude;
+  String localizacao;
+  String cep;
   bool finalizada;
 
   PontoTuristico({
@@ -30,6 +33,8 @@ class PontoTuristico{
     required this.diferenciais,
     required this.longitude,
     required this.latitude,
+    required this.localizacao,
+    required this.cep,
     this.finalizada = false,
     this.dataCadastro
   });
@@ -49,6 +54,8 @@ class PontoTuristico{
     dataCadastro == null ? null : DateFormat("yyyy-MM-dd").format(dataCadastro!),
     campoLongitude:longitude,
     campoLatitude:latitude,
+    campoLocalizacao:localizacao,
+    campoCEP:cep,
     campoFinalizada: finalizada ? 1 : 0
   };
 
@@ -62,6 +69,8 @@ class PontoTuristico{
         : null,
     latitude: map[campoLatitude] is String ? map[campoLatitude] : '',
     longitude: map[campoLongitude] is String ? map[campoLongitude] : '',
+    localizacao: map[campoLocalizacao] is String ? map[campoLocalizacao] : '',
+    cep: map[campoCEP] is String ? map[campoCEP] : '',
     finalizada: map[campoFinalizada] == 1,
   );
 }
