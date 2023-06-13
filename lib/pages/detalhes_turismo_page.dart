@@ -1,5 +1,3 @@
-import 'dart:ffi';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -19,8 +17,7 @@ class DetalhesTurismoPage extends StatefulWidget {
 class _DetalhesTurismoPageState extends State<DetalhesTurismoPage> {
 
   Position? _localizacaoAtual;
-  String get _textoLocalizacao => _localizacaoAtual == null ? '' :
-  'Latitude: ${_localizacaoAtual!.latitude}  |  Longitude: ${_localizacaoAtual!.longitude}';
+  var _distancia;
 
   String get _latitude => _localizacaoAtual?.latitude.toString() ?? '';
   String get _longitude => _localizacaoAtual?.longitude.toString() ?? '';
@@ -110,29 +107,144 @@ class _DetalhesTurismoPageState extends State<DetalhesTurismoPage> {
             Valor(valor: widget.pontoturistico.finalizada ? 'Sim' : 'Não'),
           ],
         ),
+        // Row(
+        //   children: [
+        //     ElevatedButton(
+        //         onPressed: _calcularDistancia,
+        //         child: Icon(Icons.map)
+        //     ),
+        //     Campo(descricao: 'Calculo de distância: '),
+        //     Valor(
+        //       valor:  'Distância $_calcularDistancia',
+        //     ),
+        //   ],
+        // ),
         Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ElevatedButton(
-                onPressed: calcularDistancia,
-                child: Icon(Icons.map)
-            ),
-            Campo(descricao: 'Calculo de distância: '),
-            Valor(
-              valor: calcularDistancia().toString(),
-            ),
+            ElevatedButton.icon(
+              icon: const Icon(
+                Icons.route,
+                color: Colors.white,
+                size: 20,
+              ),
+              label: const Text('Calculo da distância'),
+              onPressed: _calcularDistancia,
+            )
           ],
+        ),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(),
+            borderRadius: BorderRadius.circular(8), // Define um raio de borda para deixar os cantos arredondados
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(8),
+            child: Text(
+              ' ${_localizacaoAtual == null ? "--" : _distancia}',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         ),
       ],
     ),
   );
 
-  Future<Double> calcularDistancia() async {
-    Double distanciaEmMetros = (await Geolocator.distanceBetween(_latitude as double, _longitude as double,
-        widget.pontoturistico.localizacao as double, widget.pontoturistico.localizacao as double)) as Double;
+  void _calcularDistancia(){
+    _obterLocalizacaoAtual();
+  }
 
-    // double distanciaEmQuilometros = distanciaEmMetros / 1000;
+  void _obterLocalizacaoAtual() async{
+    bool servicoHabilitado = await _servicoHabilitado();
+    if(!servicoHabilitado){
+      return;
+    }
+    bool permissoesPermitidas = await _verificaPermissoes();
+    if(!permissoesPermitidas){
+      return;
+    }
+    Position posicao = await Geolocator.getCurrentPosition();
+    setState(() {
+      _localizacaoAtual = posicao;
+      _distancia = Geolocator.distanceBetween(
+          posicao.latitude,
+          posicao.longitude,
+          double.parse(widget.pontoturistico.latitude),
+          double.parse(widget.pontoturistico.longitude));
+      if(_distancia > 1000){
+        var _distanciaKM = _distancia/1000;
+        _distancia = "${double.parse((_distanciaKM).toStringAsFixed(2))}KM";
+      }else{
+        _distancia = "${_distancia.toStringAsFixed(2)}M";
+      }
+    });
+  }
 
-    return distanciaEmMetros;
+  Future<bool> _servicoHabilitado() async {
+    bool servicoHabilitado = await Geolocator.isLocationServiceEnabled();
+    if (!servicoHabilitado) {
+      await _mostrarMensagemDialog(
+          'Para utilizar este recurso, é '
+              ' necessário acessar as configurações '
+              ' para permitir a utilização do serviço de localização.'
+      );
+      Geolocator.openAppSettings();
+      return false;
+    }
+    return true;
+  }
+
+
+  Future<bool> _verificaPermissoes() async {
+    LocationPermission permissao = await Geolocator.checkPermission();
+    if (permissao == LocationPermission.denied) {
+      permissao = await Geolocator.requestPermission();
+      if (permissao == LocationPermission.denied) {
+        await _mostrarMensagemDialog('Falta de permissão');
+        return false;
+      }
+    }
+    if (permissao == LocationPermission.deniedForever) {
+      await _mostrarMensagemDialog(
+          'Para utilizar este recurso,'
+              ' é necessário acessar as configurações'
+              ' para permitir a utilização do serviço de localização!!'
+      );
+      Geolocator.openAppSettings();
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _mostrarMensagemDialog(String mensagem) async {
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Atenção'),
+          content: Text(mensagem),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _mostrarMensagem(String mensagem){
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(mensagem)
+        )
+    );
   }
 
   void _abrirNoMapaExterno(){
